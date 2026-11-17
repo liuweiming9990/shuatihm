@@ -273,8 +273,10 @@
             <div class="settings-row"><label>主题模式</label><div class="theme-btn-group"><div class="theme-btn active" data-theme="day" onclick="setTheme('day')">日间</div><div class="theme-btn" data-theme="night" onclick="setTheme('night')">夜间</div><div class="theme-btn" data-theme="eye" onclick="setTheme('eye')">护眼</div></div></div>
             <div class="settings-row"><label>字体大小</label><div class="range-container"><span>小</span><input type="range" id="settingsFontSize" min="13" max="22" value="15" step="1"><span>大</span></div><div class="setting-control-row" style="margin-top:8px"><button type="button" class="setting-adjust-btn" onclick="adjustFontSize(-1)">-</button><span class="setting-value-display" id="fontSizeDisplay">15px</span><button type="button" class="setting-adjust-btn" onclick="adjustFontSize(1)">+</button></div><button type="button" class="setting-reset-mini" onclick="resetFontSize()">恢复默认 (15px)</button></div>
             <div class="settings-row"><label>选项间距</label><div class="range-container"><span>窄</span><input type="range" id="settingsOptGap" min="4" max="20" value="8" step="1"><span>宽</span></div><div class="setting-control-row" style="margin-top:8px"><button type="button" class="setting-adjust-btn" onclick="adjustOptGap(-1)">-</button><span class="setting-value-display" id="optGapDisplay">8px</span><button type="button" class="setting-adjust-btn" onclick="adjustOptGap(1)">+</button></div><button type="button" class="setting-reset-mini" onclick="resetOptGap()">恢复默认 (8px)</button></div>
+            <div class="settings-row"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="settingsAutoFs" style="width:20px;height:20px;accent-color:var(--primary)"> 打开后自动全屏</label><div class="hint">打开页面后第一次点屏幕或滑动时自动进入全屏，不用再找菜单；浏览器不支持时只能用下面的按钮或浏览器菜单</div></div>
             <div class="settings-row"><label>语音反馈</label><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><input type="checkbox" id="settingsVoiceEnabled" style="width:20px;height:20px;accent-color:var(--primary)"><span>启用答题音效</span></div><div class="hint">提交答案后播放正确或错误提示音</div></div>
             <div class="settings-row"><label>AI解析</label><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><input type="checkbox" id="settingsAIEnabled" style="width:20px;height:20px;accent-color:var(--primary)" onchange="toggleAIKeyInput()"><span>启用AI解析</span></div><input type="password" id="settingsAIKey" placeholder="输入SiliconFlow API密钥 (sk-...)" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);font-size:16px;background:var(--input-bg);color:var(--text);min-height:44px;display:none"><div class="hint">注册 <a href="https://siliconflow.cn" target="_blank" style="color:var(--primary)">siliconflow.cn</a> 获取免费API密钥 <button class="setting-reset-mini" onclick="showTutorial('ai')" style="display:inline;margin-left:8px;padding:2px 8px;font-size:11px;">如何获取API？</button></div></div>
+            <div class="settings-row"><button class="settings-reset-btn" onclick="toggleFullscreen()">进入全屏浏览</button><div class="hint">隐藏地址栏和工具栏，刷题区域更大；再点一次退出全屏。若浏览器不支持，会提示改用菜单里的“全屏浏览”</div></div>
             <div class="settings-row"><button class="settings-reset-btn" onclick="window.open('changelog.md')">版本日志</button><div class="hint">查看迭代更新记录</div></div>
             <div style="text-align:center;margin-top:16px"><button class="btn btn-nav" onclick="closeSettings()">取消</button><button class="btn btn-submit" onclick="saveSettings()">保存</button></div>
         </div>
@@ -349,6 +351,47 @@
 
         function showToast(msg) { var t = document.getElementById('updateToast'); t.classList.add('show'); t.textContent = msg; setTimeout(function() { t.classList.remove('show'); }, 2000); }
 
+        window.toggleFullscreen = function() {
+            var d = document.documentElement;
+            var fsEl = document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement;
+            try {
+                if (fsEl) {
+                    var exitFn = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+                    if (exitFn) { var r0 = exitFn.call(document); if (r0 && r0.catch) { r0.catch(function(){}); } return; }
+                }
+                var reqFn = d.requestFullscreen || d.webkitRequestFullscreen || d.msRequestFullscreen;
+                if (!reqFn) { showToast('当前浏览器不支持网页全屏，请用浏览器菜单里的“全屏浏览”'); return; }
+                var ret;
+                try { ret = reqFn.call(d, { navigationUI: 'hide' }); }
+                catch (err) { ret = reqFn.call(d); }
+                if (ret && ret.catch) { ret.catch(function() { showToast('浏览器拒绝了全屏请求，请用菜单里的“全屏浏览”'); }); }
+            } catch (e) {
+                showToast('浏览器拒绝了全屏请求，请用菜单里的“全屏浏览”');
+            }
+        };
+
+        (function () {
+            var fired = false;
+            function attempt() {
+                if (fired) return;
+                fired = true;
+                ['pointerdown', 'touchstart', 'click'].forEach(function (ev) { document.removeEventListener(ev, attempt, true); });
+                if (!autoFs) return;
+                if (document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement) return;
+                try {
+                    var d = document.documentElement;
+                    var reqFn = d.requestFullscreen || d.webkitRequestFullscreen || d.msRequestFullscreen;
+                    if (!reqFn) return;
+                    var ret;
+                    try { ret = reqFn.call(d, { navigationUI: 'hide' }); } catch (e1) { ret = reqFn.call(d); }
+                    if (ret && ret.catch) { ret.catch(function () {}); }
+                } catch (e2) {}
+            }
+            ['pointerdown', 'touchstart', 'click'].forEach(function (ev) {
+                document.addEventListener(ev, attempt, { capture: true, passive: true });
+            });
+        })();
+
         function applyTheme(theme) { document.body.classList.remove('theme-night','theme-eye'); if (theme==='night') document.body.classList.add('theme-night'); if (theme==='eye') document.body.classList.add('theme-eye'); var btns = document.querySelectorAll('.theme-btn'); for (var i=0; i<btns.length; i++) { btns[i].classList.toggle('active', btns[i].dataset.theme===theme); } }
         window.setTheme = function(t) { theme = t; applyTheme(t); };
         function applyFontSize(size) { document.documentElement.style.setProperty('--fs', size+'px'); }
@@ -358,7 +401,7 @@
         var currentTab='practice', currentPage='home', currentMode=null, currentQuestions=[], currentIndex=0;
         var selectedOptions=new Set(), feedbackInfo=null, savedProgress={};
         var pendingRows=null, pendingFileName='', pendingHeaders=[];
-        var questionStatus=[], randomCount=50, autoSkip=true, autoRemoveWrongCount=1;
+        var questionStatus=[], randomCount=50, autoSkip=true, autoRemoveWrongCount=1, autoFs=true;
         var hideDone=false, theme='day', fontSize=15, optGap=8;
         var aiEnabled=false, aiApiKey='', aiCache={};
         var voiceEnabled = true;
@@ -377,7 +420,7 @@
             try { savedProgress = JSON.parse(localStorage.getItem('quizProgress')||'{}'); } catch(e) {}
             try { aiCache = JSON.parse(localStorage.getItem('aiCache')||'{}'); } catch(e) {}
             migrateProgress();
-            try { var s = JSON.parse(localStorage.getItem('appSettings')||'{}'); randomCount = s.randomCount||50; autoSkip = s.autoSkip!==false; autoRemoveWrongCount = s.autoRemoveWrongCount||1; hideDone = s.hideDone||false; theme = s.theme||'day'; fontSize = s.fontSize||15; optGap = s.optGap||8; aiEnabled = s.aiEnabled||false; aiApiKey = s.aiApiKey||''; voiceEnabled = s.voiceEnabled !== false; } catch(e) {}
+            try { var s = JSON.parse(localStorage.getItem('appSettings')||'{}'); randomCount = s.randomCount||50; autoSkip = s.autoSkip!==false; autoRemoveWrongCount = s.autoRemoveWrongCount||1; hideDone = s.hideDone||false; theme = s.theme||'day'; fontSize = s.fontSize||15; optGap = s.optGap||8; aiEnabled = s.aiEnabled||false; aiApiKey = s.aiApiKey||''; voiceEnabled = s.voiceEnabled !== false; autoFs = s.autoFs !== false; } catch(e) {}
             applyTheme(theme); applyFontSize(fontSize); applyOptGap(optGap);
             var names = Object.keys(banks); if (names.length>0) { var lastName = localStorage.getItem('lastBankName'); if (lastName && banks[lastName]) { currentBankName = lastName; } else { currentBankName = names[0]; } }
         }
@@ -416,9 +459,9 @@
 
         (function bindSliderEvents() { function bind() { var fontSizeSlider = document.getElementById('settingsFontSize'); if (fontSizeSlider) { fontSizeSlider.addEventListener('input', function() { var display=document.getElementById('fontSizeDisplay'); if (display) display.textContent = this.value+'px'; applyFontSize(parseInt(this.value)); }); } var optGapSlider = document.getElementById('settingsOptGap'); if (optGapSlider) { optGapSlider.addEventListener('input', function() { var display=document.getElementById('optGapDisplay'); if (display) display.textContent = this.value+'px'; applyOptGap(parseInt(this.value)); }); } } if (document.readyState==='loading') { document.addEventListener('DOMContentLoaded', bind); } else { bind(); } })();
 
-        function saveSettings() { var fontSizeInput = document.getElementById('settingsFontSize'); var optGapInput = document.getElementById('settingsOptGap'); randomCount = parseInt(document.getElementById('settingsRandomCount').value); autoRemoveWrongCount = parseInt(document.getElementById('settingsAutoRemoveCount').value); hideDone = document.getElementById('settingsHideDone').checked; fontSize = fontSizeInput ? parseInt(fontSizeInput.value) : 15; optGap = optGapInput ? parseInt(optGapInput.value) : 8; aiEnabled = document.getElementById('settingsAIEnabled').checked; aiApiKey = document.getElementById('settingsAIKey').value.trim(); voiceEnabled = document.getElementById('settingsVoiceEnabled').checked; if (isNaN(randomCount)||randomCount<1) randomCount=50; if (isNaN(autoRemoveWrongCount)||autoRemoveWrongCount<0) autoRemoveWrongCount=1; if (isNaN(fontSize)||fontSize<13) fontSize=15; if (isNaN(optGap)||optGap<4) optGap=8; localStorage.setItem('appSettings', JSON.stringify({ randomCount:randomCount, autoSkip:autoSkip, autoRemoveWrongCount:autoRemoveWrongCount, hideDone:hideDone, theme:theme, fontSize:fontSize, optGap:optGap, aiEnabled:aiEnabled, aiApiKey:aiApiKey, voiceEnabled:voiceEnabled })); applyTheme(theme); applyFontSize(fontSize); applyOptGap(optGap); document.getElementById('settingsModal').classList.remove('show'); document.body.style.overflow = ''; showToast('设置已保存'); }
+        function saveSettings() { var fontSizeInput = document.getElementById('settingsFontSize'); var optGapInput = document.getElementById('settingsOptGap'); randomCount = parseInt(document.getElementById('settingsRandomCount').value); autoRemoveWrongCount = parseInt(document.getElementById('settingsAutoRemoveCount').value); hideDone = document.getElementById('settingsHideDone').checked; fontSize = fontSizeInput ? parseInt(fontSizeInput.value) : 15; optGap = optGapInput ? parseInt(optGapInput.value) : 8; aiEnabled = document.getElementById('settingsAIEnabled').checked; aiApiKey = document.getElementById('settingsAIKey').value.trim(); voiceEnabled = document.getElementById('settingsVoiceEnabled').checked; var afsEl = document.getElementById('settingsAutoFs'); autoFs = afsEl ? afsEl.checked : autoFs; if (isNaN(randomCount)||randomCount<1) randomCount=50; if (isNaN(autoRemoveWrongCount)||autoRemoveWrongCount<0) autoRemoveWrongCount=1; if (isNaN(fontSize)||fontSize<13) fontSize=15; if (isNaN(optGap)||optGap<4) optGap=8; localStorage.setItem('appSettings', JSON.stringify({ randomCount:randomCount, autoSkip:autoSkip, autoRemoveWrongCount:autoRemoveWrongCount, hideDone:hideDone, theme:theme, fontSize:fontSize, optGap:optGap, aiEnabled:aiEnabled, aiApiKey:aiApiKey, voiceEnabled:voiceEnabled, autoFs:autoFs })); applyTheme(theme); applyFontSize(fontSize); applyOptGap(optGap); document.getElementById('settingsModal').classList.remove('show'); document.body.style.overflow = ''; showToast('设置已保存'); }
         function closeSettings() { document.getElementById('settingsModal').classList.remove('show'); document.body.style.overflow = ''; }
-        window.openSettings = function() { document.getElementById('settingsRandomCount').value = randomCount; document.getElementById('settingsAutoRemoveCount').value = autoRemoveWrongCount; document.getElementById('settingsHideDone').checked = hideDone; document.getElementById('settingsFontSize').value = fontSize; document.getElementById('settingsOptGap').value = optGap; document.getElementById('settingsAIEnabled').checked = aiEnabled; document.getElementById('settingsAIKey').value = aiApiKey; document.getElementById('settingsAIKey').style.display = aiEnabled ? 'block' : 'none'; document.getElementById('settingsVoiceEnabled').checked = voiceEnabled; var fontSizeDisplay = document.getElementById('fontSizeDisplay'); if (fontSizeDisplay) fontSizeDisplay.textContent = fontSize+'px'; var optGapDisplay = document.getElementById('optGapDisplay'); if (optGapDisplay) optGapDisplay.textContent = optGap+'px'; applyTheme(theme); document.getElementById('settingsModal').classList.add('show'); document.body.style.overflow = 'hidden'; };
+        window.openSettings = function() { document.getElementById('settingsRandomCount').value = randomCount; document.getElementById('settingsAutoRemoveCount').value = autoRemoveWrongCount; document.getElementById('settingsHideDone').checked = hideDone; document.getElementById('settingsFontSize').value = fontSize; document.getElementById('settingsOptGap').value = optGap; document.getElementById('settingsAIEnabled').checked = aiEnabled; document.getElementById('settingsAIKey').value = aiApiKey; document.getElementById('settingsAIKey').style.display = aiEnabled ? 'block' : 'none'; document.getElementById('settingsVoiceEnabled').checked = voiceEnabled; var afsInit = document.getElementById('settingsAutoFs'); if (afsInit) afsInit.checked = autoFs; var fontSizeDisplay = document.getElementById('fontSizeDisplay'); if (fontSizeDisplay) fontSizeDisplay.textContent = fontSize+'px'; var optGapDisplay = document.getElementById('optGapDisplay'); if (optGapDisplay) optGapDisplay.textContent = optGap+'px'; applyTheme(theme); document.getElementById('settingsModal').classList.add('show'); document.body.style.overflow = 'hidden'; };
         window.switchTab = function(tab) { currentTab = tab; if (tab==='practice') currentPage='home'; else currentPage='manage'; document.getElementById('tabPracticeBtn').classList.toggle('active', tab==='practice'); document.getElementById('tabManageBtn').classList.toggle('active', tab==='manage'); render(); };
         window.goHome = function() { currentPage='home'; render(); };
         window.goPage = function(page) { currentPage = page; window.scrollTo(0,0); render(); };
